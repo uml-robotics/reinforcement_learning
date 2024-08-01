@@ -181,7 +181,7 @@ bipedal7:
   max_timestep: 2000
   max_episodes: 3000
   env_make_params:
-    hardcore: True
+    hardcore: False
 
 # every 2 timesteps
 pendulum1:
