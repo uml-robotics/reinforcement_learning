@@ -255,7 +255,7 @@ class Agent():
                     best_reward = episode_reward
 
                 if episode_reward > best_reward and episode > 0:
-                    log_message = f"{datetime.now().strftime(self.DATE_FORMAT)}: New Best Reward: {episode_reward:0.1f} ({abs((episode_reward-best_reward)/best_reward)*100:+.1f}%) at episode {episode}, saving model..."
+                    log_message = f"{datetime.now().strftime(self.DATE_FORMAT)}: New Best Reward: {episode_reward:0.1f} ({abs((episode_reward-best_reward)/best_reward)*100:+.1f}%) at episode {episode}"
                     print(log_message)
                     best_reward = episode_reward
             else:
