@@ -1,22 +1,25 @@
-from collections import deque
 import gymnasium as gym
+
 import numpy as np
+from collections import deque
 
 import matplotlib
 import matplotlib.pyplot as plt
 
 import random
-import torch
-import torch.nn.functional as F
-import yaml
-
-from td3 import TD3_Actor, TD3_Critic
-
-from datetime import datetime, timedelta
-import argparse
 import itertools
 
+import torch
+from torch import nn
+import torch.nn.functional as F
+
+import argparse
+import yaml
+
+from datetime import datetime, timedelta
 import os
+
+from td3 import TD3_Actor, TD3_Critic
 
 # 'Agg': used to generate plots as images and save them to a file instead of rendering to screen
 matplotlib.use('Agg')
@@ -47,6 +50,8 @@ class Agent():
         self.hyperparameter_set = hyperparameter_set
 
         self.env_id                 = hyperparameters['env_id']
+        self.input_model_name       = hyperparameters['input_model_name']
+        self.output_model_name      = hyperparameters['output_model_name']
         self.state_dim              = hyperparameters['state_dim']
         self.action_dim             = hyperparameters['action_dim']
         self.action_low             = hyperparameters['action_low']
@@ -65,17 +70,18 @@ class Agent():
         self.max_episodes           = hyperparameters['max_episodes']
         self.env_make_params        = hyperparameters.get('env_make_params',{})     # Get optional environment-specific parameters, default to empty dict
 
-        if continue_training:
-            suffix = '_cont'
-        else:
-            suffix = ''
+        if self.input_model_name == None:
+            self.input_model_name = hyperparameter_set
+        if self.output_model_name == None:
+            self.output_model_name = hyperparameter_set
 
         # Path to Run info, create if does not exist
         self.RUNS_DIR = "runs"
+        self.INPUT_FILENAME = self.input_model_name
+        self.OUTPUT_FILENAME = self.output_model_name
         os.makedirs(self.RUNS_DIR, exist_ok=True)
-        self.LOG_FILE   = os.path.join(self.RUNS_DIR, f'{self.hyperparameter_set}{suffix}.log')
-        self.MODEL_FILE = os.path.join(self.RUNS_DIR, f'{self.hyperparameter_set}{suffix}.pt')
-        self.GRAPH_FILE = os.path.join(self.RUNS_DIR, f'{self.hyperparameter_set}{suffix}.png')
+        self.LOG_FILE   = os.path.join(self.RUNS_DIR, f'{self.INPUT_FILENAME}.log')
+        self.GRAPH_FILE = os.path.join(self.RUNS_DIR, f'{self.OUTPUT_FILENAME}.png')
         self.DATE_FORMAT = "%m-%d %H:%M:%S"
 
         # Set device based on device arg
@@ -126,11 +132,11 @@ class Agent():
                 file.write(log_message + '\n')
 
             if continue_training:
-                self.load(self.RUNS_DIR, f'{self.hyperparameter_set}')
+                self.load()
 
         # if we are not training, generate the actor and critic policies based on the saved model
         else:
-            self.load(self.RUNS_DIR, f'{self.hyperparameter_set}')
+            self.load()
             self.actor.eval()
             self.critic.eval()
             start_time = datetime.now()
@@ -140,6 +146,9 @@ class Agent():
     def select_action(self, state):
         state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
         return self.actor(state).detach().cpu().numpy().flatten()
+    
+    def custom_clamp(self, action):
+        return torch.amx(torch.min(action, self.action_high, self.action_low))
     
     def train(self):
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
@@ -153,6 +162,8 @@ class Agent():
         with torch.no_grad():
             noise = torch.FloatTensor(actions).data.normal_(0, self.policy_noise).clamp(-self.noise_clip, self.noise_clip).to(self.device)
             next_action = (self.actor_target(next_state) + noise).clamp(-self.action_high, self.action_high)
+            # next_action = (self.actor_target(next_state) + noise)
+            # next_action = self.custom_clamp(next_action)
 
             target_Q1, target_Q2 = self.critic_target(next_state, next_action)
             target_Q = torch.min(target_Q1, target_Q2)
@@ -199,7 +210,7 @@ class Agent():
             step_count = 0          # Used for syncing policy => target network
 
             if not is_training:
-                self.load(self.RUNS_DIR, f'{self.hyperparameter_set}')
+                self.load()
 
             while(not terminated and not truncated and not step_count == self.max_timestep):
                 action = self.select_action(state)
@@ -231,7 +242,7 @@ class Agent():
 
                 if (episode + 1) % 100 == 0:
                     #Save model
-                    self.save(self.RUNS_DIR, f'{self.hyperparameter_set}')
+                    self.save()
                     time_now = datetime.now()
                     average_reward = np.mean(self.rewards_per_episode[-100:])
                     log_message = f"{time_now.strftime(self.DATE_FORMAT)}: Saving Model at Episode: {episode + 1} Average Reward: {average_reward:0.1f}"
@@ -240,24 +251,23 @@ class Agent():
                         file.write(log_message + '\n')
 
                 if episode_reward > best_reward and episode > 0:
-                    # Print message
+                    best_reward = episode_reward
                     log_message = f"{datetime.now().strftime(self.DATE_FORMAT)}: New Best Reward: {episode_reward:0.1f} ({abs((episode_reward-best_reward)/best_reward)*100:+.1f}%) at episode {episode}, saving model..."
                     print(log_message)
-                    best_reward = episode_reward
             else:
                 log_message = f"{datetime.now().strftime(self.DATE_FORMAT)}: This Episode Reward: {episode_reward:0.1f}"
                 print(log_message)
 
     # There is no functional difference between . pt and . pth when saving PyTorch models
-    def save(self, directory, name):
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        torch.save(self.actor.state_dict(), f"{directory}/{name}_actor.pth")
-        torch.save(self.critic.state_dict(), f"{directory}/{name}_critic.pth")
+    def save(self):
+        if not os.path.exists(self.RUNS_DIR):
+            os.makedirs(self.RUNS_DIR)
+        torch.save(self.actor.state_dict(), f"{self.RUNS_DIR}/{self.OUTPUT_FILENAME}_actor.pth")
+        torch.save(self.critic.state_dict(), f"{self.RUNS_DIR}/{self.OUTPUT_FILENAME}_critic.pth")
 
-    def load(self, directory, name):
-        self.actor.load_state_dict(torch.load(f"{directory}/{name}_actor.pth"))
-        self.critic.load_state_dict(torch.load(f"{directory}/{name}_critic.pth"))
+    def load(self):
+        self.actor.load_state_dict(torch.load(f"{self.RUNS_DIR}/{self.INPUT_FILENAME}_actor.pth"))
+        self.critic.load_state_dict(torch.load(f"{self.RUNS_DIR}/{self.INPUT_FILENAME}_critic.pth"))
 
     def save_graph(self, rewards_per_episode):
         # Save plots
