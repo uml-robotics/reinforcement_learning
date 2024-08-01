@@ -48,6 +48,8 @@ class Agent():
             hyperparameters = all_hyperparameter_sets[hyperparameter_set]
 
         self.hyperparameter_set = hyperparameter_set
+        self.is_training = is_training
+        self.continue_training = continue_training
 
         self.env_id                 = hyperparameters['env_id']
         self.input_model_name       = hyperparameters['input_model_name']
@@ -91,10 +93,13 @@ class Agent():
             self.device = 'cpu'
 
         # set endless mode if endless arg is true, otherwise set max episodes based on parameters 
-        if endless or not is_training:
+        if endless or not self.is_training:
             self.max_episodes = itertools.count()
         else:
             self.max_episodes = range(self.max_episodes)
+
+        if self.continue_training:
+            self.is_training = True
 
         # Create instance of the environment.
         self.env = gym.make(self.env_id, render_mode='human' if render else None, **self.env_make_params)
@@ -121,7 +126,7 @@ class Agent():
         # Initialize replay memory
         self.replay_buffer = ReplayBuffer(self.replay_buffer_size)
         
-        if is_training:
+        if self.is_training:
             # Initialize log file
             start_time = datetime.now()
             self.last_graph_update_time = start_time
@@ -197,7 +202,7 @@ class Agent():
 
         self.total_it += 1
 
-    def run(self, is_training=True):
+    def run(self):
 
         # best_reward = float(-np.inf)   # Used to track best reward
         best_reward = None
@@ -210,18 +215,18 @@ class Agent():
             episode_reward = 0.0    # Used to accumulate rewards per episode
             step_count = 0          # Used for syncing policy => target network
 
-            if not is_training:
+            if not self.is_training:
                 self.load()
 
             while(not terminated and not truncated and not step_count == self.max_timestep):
                 action = self.select_action(state)
-                if is_training:
+                if self.is_training:
                     noise = np.random.normal(0, self.action_high * self.policy_noise, size=self.action_dim)
                     action = (action + noise).clip(-self.action_high, self.action_high)
                 next_state, reward, terminated, truncated, _ = self.env.step(action)
                 terminated = step_count == self.max_timestep - 1 or terminated
 
-                if is_training:
+                if self.is_training:
                     self.replay_buffer.add(state, action, reward, next_state, terminated)
 
                     if self.replay_buffer.size() > self.batch_size and step_count % self.policy_freq == 0:
@@ -235,7 +240,7 @@ class Agent():
             # Keep track of the rewards collected per episode and save model
             self.rewards_per_episode.append(episode_reward)
 
-            if is_training:
+            if self.is_training:
                 current_time = datetime.now()
                 if current_time - self.last_graph_update_time > timedelta(seconds=10):
                     self.save_graph(self.rewards_per_episode)
@@ -318,4 +323,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     TD3 = Agent(args.train, args.endless, args.continue_training, args.render, args.use_gpu, hyperparameter_set=args.hyperparameters)
-    TD3.run(args.train)
+    TD3.run()
