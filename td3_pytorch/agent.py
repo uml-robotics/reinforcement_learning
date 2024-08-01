@@ -199,7 +199,8 @@ class Agent():
 
     def run(self, is_training=True):
 
-        best_reward = -np.inf   # Used to track best reward
+        # best_reward = float(-np.inf)   # Used to track best reward
+        best_reward = None
 
         for episode in self.max_episodes:
 
@@ -250,10 +251,13 @@ class Agent():
                     with open(self.LOG_FILE, 'a') as file:
                         file.write(log_message + '\n')
 
-                if episode_reward > best_reward and episode > 0:
+                if best_reward == None:
                     best_reward = episode_reward
+
+                if episode_reward > best_reward and episode > 0:
                     log_message = f"{datetime.now().strftime(self.DATE_FORMAT)}: New Best Reward: {episode_reward:0.1f} ({abs((episode_reward-best_reward)/best_reward)*100:+.1f}%) at episode {episode}, saving model..."
                     print(log_message)
+                    best_reward = episode_reward
             else:
                 log_message = f"{datetime.now().strftime(self.DATE_FORMAT)}: This Episode Reward: {episode_reward:0.1f}"
                 print(log_message)
