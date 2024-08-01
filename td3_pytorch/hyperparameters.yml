@@ -1,6 +1,8 @@
 # every timestep
 bipedal1:
   env_id: BipedalWalker-v3
+  input_model_name:
+  output_model_name:
   render: False
   state_dim: 24
   action_dim: 4
@@ -25,6 +27,8 @@ bipedal1:
 # every 2 timesteps
 bipedal2:
   env_id: BipedalWalker-v3
+  input_model_name:
+  output_model_name:
   render: False
   state_dim: 24
   action_dim: 4
@@ -49,6 +53,8 @@ bipedal2:
 # every timestep
 bipedal3:
   env_id: BipedalWalker-v3
+  input_model_name: bipedal3
+  output_model_name:
   render: False
   state_dim: 24
   action_dim: 4
@@ -73,6 +79,8 @@ bipedal3:
 # every 2 timesteps
 bipedal4:
   env_id: BipedalWalker-v3
+  input_model_name: bipedal4
+  output_model_name: 
   render: False
   state_dim: 24
   action_dim: 4
@@ -98,6 +106,8 @@ bipedal4:
 # hardcore enabled
 bipedal5:
   env_id: BipedalWalker-v3
+  input_model_name: bipedal3-5_hardcore
+  output_model_name: bipedal3_hardcore
   render: False
   state_dim: 24
   action_dim: 4
@@ -123,6 +133,8 @@ bipedal5:
 # hardcore enabled
 bipedal6:
   env_id: BipedalWalker-v3
+  input_model_name:
+  output_model_name:
   render: False
   state_dim: 24
   action_dim: 4
@@ -147,7 +159,9 @@ bipedal6:
 # every timestep
 # hardcore enabled
 bipedal7:
-  env_id: BipedalWalker-v3 
+  env_id: BipedalWalker-v3
+  input_model_name:
+  output_model_name:
   render: False
   state_dim: 24
   action_dim: 4
@@ -172,6 +186,8 @@ bipedal7:
 # every 2 timesteps
 pendulum1:
   env_id: Pendulum-v1
+  input_model_name:
+  output_model_name:
   render: False
   state_dim: 3
   action_dim: 1
@@ -197,6 +213,8 @@ pendulum1:
 # lower learning rate
 pendulum2:
   env_id: Pendulum-v1
+  input_model_name:
+  output_model_name:
   render: False
   state_dim: 3
   action_dim: 1
