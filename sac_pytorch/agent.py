@@ -151,6 +151,7 @@ class Agent():
 
     def select_action(self, state):
         state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
+        # at testing REMOVE STOCHASTICITY
         action, log_prob = self.actor.sample(state)  # Use the sample method to get action and log probability
         return action.detach().cpu().numpy().flatten(), log_prob
 
@@ -167,16 +168,17 @@ class Agent():
         next_state = torch.FloatTensor(next_states).to(self.device)
         done = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
-        # Update alpha (entropy coefficient)
+        # Update alpha (entropy coefficient) if using automatic tuning
+        # Compute loss for alpha
         action, log_prob = self.actor(state)
-        alpha_loss = -(self.log_alpha.exp() * (log_prob + self.entropy)).mean()
+        alpha_loss = -(self.log_alpha.exp() * (log_prob + self.entropy).detach()).mean()
 
         self.alpha_optimizer.zero_grad()
-        alpha_loss.backward()  # Backward for alpha loss
+        alpha_loss.backward()
         self.alpha_optimizer.step()
-        self.alpha = self.log_alpha.exp().item()  # Update alpha value
 
-        # Start computing target Q values
+        self.alpha = self.log_alpha.exp().item()
+
         with torch.no_grad():
             next_action, next_log_prob = self.actor(next_state)
             target_Q1, target_Q2 = self.critic_target(next_state, next_action)
@@ -188,21 +190,21 @@ class Agent():
 
         # Compute critic loss
         critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
-
+        
         # Optimize the critic
         self.critic_optimizer.zero_grad()
-        critic_loss.backward()  # Backward for critic loss
+        critic_loss.backward()
         self.critic_optimizer.step()
 
         # Compute actor loss
-        action, log_prob = self.actor(state)  # Get new actions and log probabilities
-        Q1, Q2 = self.critic(state, action)  # Compute Q values for the current actions
+        action, log_prob = self.actor(state)
+        Q1, Q2 = self.critic(state, action)
         actor_loss = (self.alpha * log_prob - torch.min(Q1, Q2)).mean()
 
         # Optimize the actor
         self.actor_optimizer.zero_grad()
-        actor_loss.backward()  # Backward for actor loss
-        self.actor_optimizer.step()
+        actor_loss.backward()
+
 
         # Update target networks with polyak averaging
         with torch.no_grad():
