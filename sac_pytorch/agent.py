@@ -19,7 +19,7 @@ import yaml
 from datetime import datetime, timedelta
 import os
 
-from sac import SAC_Actor, SAC_Critic
+from sac import SAC_Actor, SAC_Critic, SAC_Entropy
 
 # 'Agg': used to generate plots as images and save them to a file instead of rendering to screen
 matplotlib.use('Agg')
@@ -69,7 +69,7 @@ class Agent():
         self.max_timestep           = hyperparameters['max_timestep']
         self.max_episodes           = hyperparameters['max_episodes']
         self.alpha                  = hyperparameters['alpha']
-        self.entropy                = hyperparameters['entropy'] 
+        self.entropy_coefficient                = hyperparameters['entropy'] 
         self.env_make_params        = hyperparameters.get('env_make_params',{})     # Get optional environment-specific parameters, default to empty dict
 
         if self.input_model_name == None:
@@ -105,6 +105,9 @@ class Agent():
         self.num_actions = self.env.action_space.shape[0]
         self.num_states = self.env.observation_space.shape[0] # Expecting type: Box(low, high, (shape0,), float64)
 
+        # Target Entropy based on the number of actions 
+        #self.target_entropy = -self.num_actions
+
         # List to keep track of rewards collected per episode.
         self.rewards_per_episode = []
         self.total_it = 0
@@ -119,10 +122,16 @@ class Agent():
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
 
+        # create value network
+        self.entropy = SAC_Entropy(self.num_states, self.num_actions, use_gpu).to(self.device)
+        self.target_entropy = SAC_Entropy(self.num_states, self.num_actions, use_gpu).to(self.device)
+        self.target_entropy.load_state_dict(self.entropy.state_dict())
+        self.entropy_optimizer = torch.optim.Adam(self.entropy.parameters(), lr=self.learning_rate)
+
         # Initialize alpha for entropy term (automatic tuning)
         self.log_alpha = torch.tensor(np.log(self.alpha), requires_grad=True, device=self.device)
-        self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=self.learning_rate)
-        self.alpha = self.log_alpha.exp().item()
+        self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=self.learning_rate)
+        # self.alpha = self.log_alpha.exp().item()
 
         # Initialize replay memory
         self.replay_buffer = ReplayBuffer(self.replay_buffer_size)
@@ -155,64 +164,58 @@ class Agent():
         action, log_prob = self.actor.sample(state)  # Use the sample method to get action and log probability
         return action.detach().cpu().numpy().flatten(), log_prob
 
-    
-    def custom_clamp(self, action):
-        return torch.amx(torch.min(action, self.action_high, self.action_low))
+
     
     def train(self):
+        # Sample a batch from the replay buffer
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
 
-        state = torch.FloatTensor(states).to(self.device)
-        action = torch.FloatTensor(actions).to(self.device)
-        reward = torch.FloatTensor(rewards).unsqueeze(1).to(self.device)
-        next_state = torch.FloatTensor(next_states).to(self.device)
-        done = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
+        # Convert to tensors
+        states = torch.FloatTensor(states).to(self.device)
+        actions = torch.FloatTensor(actions).to(self.device)
+        rewards = torch.FloatTensor(rewards).unsqueeze(1).to(self.device)
+        next_states = torch.FloatTensor(next_states).to(self.device)
+        dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
-        # Update alpha (entropy coefficient) if using automatic tuning
-        # Compute loss for alpha
-        action, log_prob = self.actor(state)
-        alpha_loss = -(self.log_alpha.exp() * (log_prob + self.entropy).detach()).mean()
-
-        self.alpha_optimizer.zero_grad()
-        alpha_loss.backward()
-        self.alpha_optimizer.step()
-
-        self.alpha = self.log_alpha.exp().item()
-
+        # Update the critic networks
         with torch.no_grad():
-            next_action, next_log_prob = self.actor(next_state)
-            target_Q1, target_Q2 = self.critic_target(next_state, next_action)
-            target_Q = torch.min(target_Q1, target_Q2) - self.alpha * next_log_prob
-            target_Q = reward + (1 - done) * self.discount * target_Q
+            next_action, next_log_prob = self.actor.sample(next_states)
+            next_q1, next_q2 = self.critic_target(next_states, next_action)
+            next_v = torch.min(next_q1, next_q2) - self.alpha * next_log_prob
+            target_q = rewards + (1 - dones) * self.discount * next_v
 
-        # Compute current Q estimates
-        current_Q1, current_Q2 = self.critic(state, action)
-
-        # Compute critic loss
-        critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
-        
-        # Optimize the critic
+        q1, q2 = self.critic(states, actions)
+        critic_loss = nn.MSELoss()(q1, target_q) + nn.MSELoss()(q2, target_q)
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
 
-        # Compute actor loss
-        action, log_prob = self.actor(state)
-        Q1, Q2 = self.critic(state, action)
-        actor_loss = (self.alpha * log_prob - torch.min(Q1, Q2)).mean()
-
-        # Optimize the actor
+        # Update the actor network
+        action, log_prob = self.actor.sample(states)
+        q1, q2 = self.critic(states, action)
+        actor_loss = (self.alpha * log_prob - torch.min(q1, q2)).mean()
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
+        self.actor_optimizer.step()
 
+        # Update the entropy network and the entropy coefficient
+        entropy_value = self.entropy(states)
+        target_entropy_value = self.target_entropy(states)
+        entropy_loss = -(entropy_value + target_entropy_value).mean()
+        self.entropy_optimizer.zero_grad()
+        entropy_loss.backward()
+        self.entropy_optimizer.step()
 
-        # Update target networks with polyak averaging
-        with torch.no_grad():
-            for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-                target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+        self.alpha = self.log_alpha.exp().item()
 
+        # Soft update the target networks
+        for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
+            target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+        for param, target_param in zip(self.entropy.parameters(), self.target_entropy.parameters()):
+            target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+        # Increment iteration counter
         self.total_it += 1
-
 
 
 
@@ -300,12 +303,9 @@ class Agent():
 
     def load(self):
         self.actor.load_state_dict(torch.load(f"{self.RUNS_DIR}/{self.INPUT_FILENAME}_actor.pth"))
-        self.actor_target.load_state_dict(self.actor.state_dict())
         self.critic.load_state_dict(torch.load(f"{self.RUNS_DIR}/{self.INPUT_FILENAME}_critic.pth"))
         self.critic_target.load_state_dict(self.critic.state_dict())
     
-        
-        
 
     def save_graph(self, rewards_per_episode):
         # Save plots

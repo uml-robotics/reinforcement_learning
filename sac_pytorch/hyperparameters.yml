@@ -201,7 +201,7 @@ bipedal7:
 pendulum1:
   env_id: Pendulum-v1
   input_model_name: 
-  output_model_name: pendulum3
+  output_model_name: pendulum7
   render: False
   state_dim: 3
   action_dim: 1
@@ -220,16 +220,16 @@ pendulum1:
   max_reward: 0
   max_timestep: 200
   max_episodes: 3000
-  alpha: 0.5
+  alpha: 0.1
   entropy: 0.2
   env_make_params:
-    g: 9.8
+    g: 3.0
 
 # every 2 timesteps
 # lower learning rate
 pendulum2:
   env_id: Pendulum-v1
-  input_model_name:
+  input_model_name: pendulum3
   output_model_name:
   render: False
   state_dim: 3

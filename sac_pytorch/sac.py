@@ -2,6 +2,9 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+#scales the cost function to encourage exploration
+# smooth
+
 
 # Actor Network
 class SAC_Actor(nn.Module):
@@ -26,7 +29,7 @@ class SAC_Actor(nn.Module):
         mean = self.fc_mean(x)
  
         log_std = self.fc_log_std(x)
-        log_std = torch.clamp(log_std, min=-20, max=2)  # Clamping log_std between -20 and -19 for debugging
+        log_std = torch.clamp(log_std, min=-20, max=2)  
         std = torch.exp(log_std)
         
         return mean, std
@@ -37,6 +40,8 @@ class SAC_Actor(nn.Module):
         #print(f'normal: {normal}')
         z = normal.rsample()
         action = torch.tanh(z) # Selected action
+
+        #action clamp tanh here maybe
 
         log_prob = normal.log_prob(z) # Calculates the log probability of the acton 
         log_prob -= torch.log(1 - action.pow(2) + 1e-6)  
@@ -79,6 +84,28 @@ class SAC_Critic(nn.Module):
         q1 = F.relu(self.fc2(q1))
         q1 = self.fc3(q1)
         return q1
+    
+
+# Value Network
+class SAC_Entropy(nn.Module):
+    def __init__(self, state_dim, action_dim, use_gpu):
+        super(SAC_Entropy, self).__init__()
+        self.fc1 = nn.Linear(state_dim, 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, 1)
+        
+        if use_gpu and torch.cuda.is_available():
+            self.device = 'cuda'
+        else:
+            self.device = 'cpu'
+
+    def forward(self, state):
+        x = F.relu(self.fc1(state))
+        x = F.relu(self.fc2(x))
+        value = self.fc3(x)
+        return value
+
+
     
 if __name__ == '__main__':
     state_dim = 12                                          # define number of input variables (the state)
