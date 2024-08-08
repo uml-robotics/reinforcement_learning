@@ -105,8 +105,9 @@ class Agent():
         self.num_actions = self.env.action_space.shape[0]
         self.num_states = self.env.observation_space.shape[0] # Expecting type: Box(low, high, (shape0,), float64)
 
-        # Target Entropy based on the number of actions 
-        #self.target_entropy = -self.num_actions
+       # Target Entropy based on the number of actions
+        self.target_entropy = -np.prod(0.2)  # or -self.num_actions
+
 
         # List to keep track of rewards collected per episode.
         self.rewards_per_episode = []
@@ -124,8 +125,8 @@ class Agent():
 
         # create value network
         self.entropy = SAC_Entropy(self.num_states, self.num_actions, use_gpu).to(self.device)
-        self.target_entropy = SAC_Entropy(self.num_states, self.num_actions, use_gpu).to(self.device)
-        self.target_entropy.load_state_dict(self.entropy.state_dict())
+        # self.target_entropy = SAC_Entropy(self.num_states, self.num_actions, use_gpu).to(self.device)
+        # self.target_entropy.load_state_dict(self.entropy.state_dict())
         self.entropy_optimizer = torch.optim.Adam(self.entropy.parameters(), lr=self.learning_rate)
 
         # Initialize alpha for entropy term (automatic tuning)
@@ -198,21 +199,17 @@ class Agent():
         actor_loss.backward()
         self.actor_optimizer.step()
 
-        # Update the entropy network and the entropy coefficient
-        entropy_value = self.entropy(states)
-        target_entropy_value = self.target_entropy(states)
-        entropy_loss = -(entropy_value + target_entropy_value).mean()
-        self.entropy_optimizer.zero_grad()
-        entropy_loss.backward()
-        self.entropy_optimizer.step()
-
+        # Update the entropy coefficient (alpha)
+        alpha_loss = -(self.log_alpha * (log_prob + self.target_entropy).detach()).mean()
+        self.log_alpha_optimizer.zero_grad()
+        alpha_loss.backward()
+        self.log_alpha_optimizer.step()
         self.alpha = self.log_alpha.exp().item()
 
         # Soft update the target networks
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
             target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
-        for param, target_param in zip(self.entropy.parameters(), self.target_entropy.parameters()):
-            target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
 
         # Increment iteration counter
         self.total_it += 1
@@ -310,6 +307,8 @@ class Agent():
     def save_graph(self, rewards_per_episode):
         # Save plots
         fig, ax1 = plt.subplots()
+
+        plt.title(f'Alpha: 0.2, entropy 0.2, LR 0.001')
 
         # Plot average rewards per last 100 episodes , and the cumulative mean over all episodes (Y-axis) vs episodes (X-axis)
         mean_rewards = np.zeros(len(rewards_per_episode))
