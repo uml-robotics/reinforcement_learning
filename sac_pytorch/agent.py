@@ -69,7 +69,7 @@ class Agent():
         self.max_timestep           = hyperparameters['max_timestep']
         self.max_episodes           = hyperparameters['max_episodes']
         self.alpha                  = hyperparameters['alpha']
-        self.entropy_coefficient                = hyperparameters['entropy'] 
+        self.entropy_coefficient    = hyperparameters['entropy'] 
         self.env_make_params        = hyperparameters.get('env_make_params',{})     # Get optional environment-specific parameters, default to empty dict
 
         if self.input_model_name == None:
