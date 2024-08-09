@@ -353,7 +353,7 @@ class Agent():
         ax3.set_ylim(min(self.target_entropies), max(self.target_entropies))  # Adjust scale for entropy
 
         # Adjust layout to create more space for the text box
-        fig.tight_layout(rect=[0, 0.3, 1, 1])  # Adjust rect to leave more space at the bottom
+        fig.tight_layout(rect=[0, 0.26, 1, 1])  # Adjust rect to leave more space at the bottom
 
         # Add text box below the graph
         text = (
