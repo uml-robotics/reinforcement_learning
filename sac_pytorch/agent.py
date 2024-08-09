@@ -369,8 +369,7 @@ class Agent():
             f'noise_clip: {self.noise_clip}    '
             f'policy_freq: {self.policy_freq}    '
             f'model_save_freq: {self.model_save_freq}\n'
-            f'alpha: {self.alpha}    '
-            f'entropy_coefficient: {self.entropy_coefficient}\n'
+            f'entropy_coefficient: {self.entropy_coefficient}    '
             f'minimum_entropy: {self.minimum_entropy}    '
             f'entropy_decay: {self.entropy_decay}\n'
         )
