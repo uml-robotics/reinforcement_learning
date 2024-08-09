@@ -1,8 +1,8 @@
 # every timestep
 bipedal1:
   env_id: BipedalWalker-v3
-  input_model_name:
-  output_model_name:
+  input_model_name: bipedal1
+  output_model_name: bipedal2
   render: False
   state_dim: 24
   action_dim: 4
@@ -21,8 +21,8 @@ bipedal1:
   max_reward: 300
   max_timestep: 1600
   max_episodes: 3000
-  alpha: 0.5
-  entropy: 0.2
+  alpha: 0.2
+  entropy_coefficient: 0.2
   env_make_params:
     hardcore: False
 
@@ -201,7 +201,7 @@ bipedal7:
 pendulum1:
   env_id: Pendulum-v1
   input_model_name: 
-  output_model_name: pendulum5
+  output_model_name: pendulum12
   render: False
   state_dim: 3
   action_dim: 1
@@ -211,7 +211,7 @@ pendulum1:
   mini_batch_size: 100
   discount: 0.99
   tau: 0.005
-  learning_rate: 0.001
+  learning_rate: 0.0003
   policy_noise: 0.2
   noise_clip: 0.5
   policy_freq: 2
@@ -221,7 +221,9 @@ pendulum1:
   max_timestep: 200
   max_episodes: 3000
   alpha: 0.2
-  entropy: 0.4
+  entropy_coefficient: 0.8
+  minimum_entropy: 0.05
+  entropy_decay: 0.9999
   env_make_params:
     g: 9.8
 

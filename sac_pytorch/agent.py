@@ -69,7 +69,9 @@ class Agent():
         self.max_timestep           = hyperparameters['max_timestep']
         self.max_episodes           = hyperparameters['max_episodes']
         self.alpha                  = hyperparameters['alpha']
-        self.entropy_coefficient    = hyperparameters['entropy'] 
+        self.entropy_coefficient    = hyperparameters['entropy_coefficient'] 
+        self.minimum_entropy        = hyperparameters['minimum_entropy']
+        self.entropy_decay          = hyperparameters['entropy_decay']
         self.env_make_params        = hyperparameters.get('env_make_params',{})     # Get optional environment-specific parameters, default to empty dict
 
         if self.input_model_name == None:
@@ -105,9 +107,8 @@ class Agent():
         self.num_actions = self.env.action_space.shape[0]
         self.num_states = self.env.observation_space.shape[0] # Expecting type: Box(low, high, (shape0,), float64)
 
-       # Target Entropy based on the number of actions
-        self.target_entropy = -np.prod(0.2)  # or -self.num_actions
-
+       # Target Entropy 
+        self.target_entropy = -np.prod(self.entropy_coefficient) 
 
         # List to keep track of rewards collected per episode.
         self.rewards_per_episode = []
@@ -166,7 +167,6 @@ class Agent():
         return action.detach().cpu().numpy().flatten(), log_prob
 
 
-    
     def train(self):
         # Sample a batch from the replay buffer
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
@@ -234,7 +234,7 @@ class Agent():
 
             while(not terminated and not truncated and not step_count == self.max_timestep):
                # get action
-                action, log_prob = self.select_action(state)  # Sample action from the actor
+                action, _ = self.select_action(state)  # Sample action from the actor
                 # action = action.detach().cpu().numpy()  # Convert action to numpy for environment
 
                 next_state, reward, terminated, truncated, _ = self.env.step(action)
@@ -251,6 +251,7 @@ class Agent():
                 state = next_state
                 episode_reward += reward
                 step_count += 1
+                
             # Keep track of the rewards collected per episode and save model
             self.rewards_per_episode.append(episode_reward)
 
@@ -290,6 +291,10 @@ class Agent():
             else:
                 log_message = f"{datetime.now().strftime(self.DATE_FORMAT)}: This Episode Reward: {episode_reward:0.1f}"
                 print(log_message)
+            # decay entropy target
+            if self.target_entropy <= -self.minimum_entropy:
+                self.target_entropy = self.target_entropy * self.entropy_decay
+                #print(f'target_entropy: {self.target_entropy}')
 
     # There is no functional difference between . pt and . pth when saving PyTorch models
     def save(self):
@@ -308,7 +313,7 @@ class Agent():
         # Save plots
         fig, ax1 = plt.subplots()
 
-        plt.title(f'Alpha: 0.2, entropy 0.2, LR 0.001')
+        plt.title(f'{self.env_id}')
 
         # Plot average rewards per last 100 episodes , and the cumulative mean over all episodes (Y-axis) vs episodes (X-axis)
         mean_rewards = np.zeros(len(rewards_per_episode))
