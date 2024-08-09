@@ -56,8 +56,8 @@ class Agent():
         self.action_dim             = hyperparameters['action_dim']
         self.action_low             = hyperparameters['action_low']
         self.action_high            = hyperparameters['action_high']
-        self.replay_buffer_size     = hyperparameters['replay_memory_size']         # size of replay memory
-        self.batch_size             = hyperparameters['mini_batch_size']            # size of the training data set sampled from the replay memory
+        self.replay_memory_size     = hyperparameters['replay_memory_size']         # size of replay memory
+        self.batch_size             = hyperparameters['batch_size']            # size of the training data set sampled from the replay memory
         self.discount               = hyperparameters['discount']
         self.tau                    = hyperparameters['tau']
         self.learning_rate          = hyperparameters['learning_rate']
@@ -113,6 +113,7 @@ class Agent():
         # List to keep track of rewards collected per episode.
         self.rewards_per_episode = []
         self.total_it = 0
+        self.target_entropies = []  # List to track target entropy values
 
     
         # Create actor and critic networks
@@ -136,7 +137,7 @@ class Agent():
         # self.alpha = self.log_alpha.exp().item()
 
         # Initialize replay memory
-        self.replay_buffer = ReplayBuffer(self.replay_buffer_size)
+        self.replay_buffer = ReplayBuffer(self.replay_memory_size)
         
         if is_training or continue_training:
             # Initialize log file
@@ -262,6 +263,8 @@ class Agent():
                     self.last_graph_update_time = current_time
 
                 if (episode + 1) % 100 == 0:
+                    # print(f'target_entropy: {self.target_entropy}')
+
                     average_reward = np.mean(self.rewards_per_episode[-100:])
                     if best_average_reward == None:
                         best_average_reward = average_reward
@@ -292,6 +295,8 @@ class Agent():
                 log_message = f"{datetime.now().strftime(self.DATE_FORMAT)}: This Episode Reward: {episode_reward:0.1f}"
                 print(log_message)
             # decay entropy target
+            self.target_entropies.append(self.target_entropy)
+
             if self.target_entropy <= -self.minimum_entropy:
                 self.target_entropy = self.target_entropy * self.entropy_decay
                 #print(f'target_entropy: {self.target_entropy}')
@@ -335,14 +340,48 @@ class Agent():
         ax2.plot(mean_total, color='tab:green', linestyle='--')
         ax2.tick_params(axis='y', labelcolor='tab:green')
 
-        # Make y axis 1 and 2 the same scale
+        # Plot the target entropy on the same graph
+        ax3 = ax1.twinx()  # Create a third y-axis
+        ax3.set_ylabel('Target Entropy', color='tab:red')
+        ax3.plot(self.target_entropies, color='tab:red', linestyle='-.', alpha=0.7)
+        ax3.tick_params(axis='y', labelcolor='tab:red')
+        ax3.spines['right'].set_position(('outward', 60))  # Offset the third axis to the right
+        
+        # Set the same scale for all y-axes
         ax1.set_ylim([min(min(mean_rewards), min(mean_total)), max(max(mean_rewards), max(mean_total))])
         ax2.set_ylim(ax1.get_ylim())
+        ax3.set_ylim(min(self.target_entropies), max(self.target_entropies))  # Adjust scale for entropy
+
+        # Adjust layout to create more space for the text box
+        fig.tight_layout(rect=[0, 0.3, 1, 1])  # Adjust rect to leave more space at the bottom
+
+        # Add text box below the graph
+        text = (
+            f'env_id: {self.env_id}\n'
+            f'input_model_name: {self.input_model_name}    '
+            f'output_model_name: {self.output_model_name}\n'
+            f'replay_memory_size: {self.replay_memory_size}    '
+            f'mini_batch_size: {self.batch_size}    '
+            f'discount: {self.discount}\n'
+            f'tau: {self.tau}    '
+            f'learning_rate: {self.learning_rate}    '
+            f'policy_noise: {self.policy_noise}\n'
+            f'noise_clip: {self.noise_clip}    '
+            f'policy_freq: {self.policy_freq}    '
+            f'model_save_freq: {self.model_save_freq}\n'
+            f'alpha: {self.alpha}    '
+            f'entropy_coefficient: {self.entropy_coefficient}\n'
+            f'minimum_entropy: {self.minimum_entropy}    '
+            f'entropy_decay: {self.entropy_decay}\n'
+        )
+
+        fig.text(0.5, 0.02, text, ha='center', fontsize=10, bbox=dict(facecolor='lightgrey', alpha=0.5))
 
         # Save the figure
-        fig.tight_layout()  # Adjust layout to prevent overlap
         fig.savefig(self.GRAPH_FILE)
         plt.close(fig)
+
+
 
 if __name__ == '__main__':
     # Parse command line inputs

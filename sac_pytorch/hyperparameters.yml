@@ -1,15 +1,15 @@
 # every timestep
 bipedal1:
   env_id: BipedalWalker-v3
-  input_model_name: bipedal1
-  output_model_name: bipedal2
+  input_model_name: 
+  output_model_name: bipedal3
   render: False
   state_dim: 24
   action_dim: 4
   action_low: -1
   action_high: 1
   replay_memory_size: 100000
-  mini_batch_size: 128
+  batch_size: 128
   discount: 0.99
   tau: 0.005
   learning_rate: 0.0003
@@ -22,7 +22,9 @@ bipedal1:
   max_timestep: 1600
   max_episodes: 3000
   alpha: 0.2
-  entropy_coefficient: 0.2
+  entropy_coefficient: 3
+  minimum_entropy: 0.05
+  entropy_decay: 0.9995
   env_make_params:
     hardcore: False
 
@@ -37,7 +39,7 @@ bipedal2:
   action_low: -1
   action_high: 1
   replay_memory_size: 100000
-  mini_batch_size: 128
+  batch_size: 128
   discount: 0.99
   tau: 0.005
   learning_rate: 0.0003
@@ -65,7 +67,7 @@ bipedal3:
   action_low: -1
   action_high: 1
   replay_memory_size: 100000
-  mini_batch_size: 128
+  batch_size: 128
   discount: 0.99
   tau: 0.005
   learning_rate: 0.0003
@@ -93,7 +95,7 @@ bipedal4:
   action_low: -1
   action_high: 1
   replay_memory_size: 100000
-  mini_batch_size: 128
+  batch_size: 128
   discount: 0.99
   tau: 0.005
   learning_rate: 0.0003
@@ -122,7 +124,7 @@ bipedal5:
   action_low: -1
   action_high: 1
   replay_memory_size: 100000
-  mini_batch_size: 128
+  batch_size: 128
   discount: 0.99
   tau: 0.005
   learning_rate: 0.0003
@@ -151,7 +153,7 @@ bipedal6:
   action_low: -1
   action_high: 1
   replay_memory_size: 100000
-  mini_batch_size: 128
+  batch_size: 128
   discount: 0.99
   tau: 0.005
   learning_rate: 0.0003
@@ -180,7 +182,7 @@ bipedal7:
   action_low: -1
   action_high: 1
   replay_memory_size: 100000
-  mini_batch_size: 128
+  batch_size: 128
   discount: 0.99
   tau: 0.005
   learning_rate: 0.0003
@@ -200,15 +202,15 @@ bipedal7:
 # every 2 timesteps
 pendulum1:
   env_id: Pendulum-v1
-  input_model_name: 
-  output_model_name: pendulum12
+  input_model_name: pendulum18
+  output_model_name: pendulum18
   render: False
   state_dim: 3
   action_dim: 1
   action_low: -2
   action_high: 2
   replay_memory_size: 100000
-  mini_batch_size: 100
+  batch_size: 100
   discount: 0.99
   tau: 0.005
   learning_rate: 0.0003
@@ -221,9 +223,9 @@ pendulum1:
   max_timestep: 200
   max_episodes: 3000
   alpha: 0.2
-  entropy_coefficient: 0.8
-  minimum_entropy: 0.05
-  entropy_decay: 0.9999
+  entropy_coefficient: 5
+  minimum_entropy: 0.2
+  entropy_decay: 0.9998
   env_make_params:
     g: 9.8
 
@@ -232,17 +234,17 @@ pendulum1:
 pendulum2:
   env_id: Pendulum-v1
   input_model_name: 
-  output_model_name: pendulum9
+  output_model_name: pendulum1
   render: False
   state_dim: 3
   action_dim: 1
   action_low: -2
   action_high: 2
-  replay_memory_size: 1000000
-  mini_batch_size: 256
+  replay_memory_size: 100000
+  batch_size: 100
   discount: 0.99
   tau: 0.005
-  learning_rate: 0.0001
+  learning_rate: 0.0003
   policy_noise: 0.2
   noise_clip: 0.5
   policy_freq: 2
@@ -252,6 +254,8 @@ pendulum2:
   max_timestep: 200
   max_episodes: 3000
   alpha: 0.2
-  entropy: 0.4
+  entropy_coefficient: 10
+  minimum_entropy: 0.05
+  entropy_decay: 0.9998
   env_make_params:
     g: 9.8
