@@ -1,7 +1,7 @@
 # every timestep
 bipedal1:
   env_id: BipedalWalker-v3
-  input_model_name: 
+  input_model_name: bipedal1
   output_model_name: bipedal3
   render: False
   state_dim: 24
@@ -31,7 +31,7 @@ bipedal1:
 # every 2 timesteps
 bipedal2:
   env_id: BipedalWalker-v3
-  input_model_name: bipedal1
+  input_model_name: bipedal3
   output_model_name: bipedal4
   render: False
   state_dim: 24
@@ -51,8 +51,10 @@ bipedal2:
   max_reward: 300
   max_timestep: 1600
   max_episodes: 3000
-  alpha: 0.5
-  entropy: 0.2
+  alpha: 0.2
+  entropy_coefficient: 3
+  minimum_entropy: 0.05
+  entropy_decay: 0.9995
   env_make_params:
     hardcore: False
 
