@@ -107,7 +107,7 @@ class Agent():
         self.num_actions = self.env.action_space.shape[0]
         self.num_states = self.env.observation_space.shape[0] # Expecting type: Box(low, high, (shape0,), float64)
 
-       # Target Entropy 
+        # Target Entropy 
         self.target_entropy = -np.prod(self.entropy_coefficient) 
 
         # List to keep track of rewards collected per episode.
@@ -115,7 +115,6 @@ class Agent():
         self.total_it = 0
         self.target_entropies = []  # List to track target entropy values
 
-    
         # Create actor and critic networks
         self.actor = SAC_Actor(self.num_states, self.num_actions, use_gpu, self.action_low, self.action_high).to(self.device)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.learning_rate)
@@ -125,16 +124,13 @@ class Agent():
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
 
-        # create value network
+        # Create Entropy network
         self.entropy = SAC_Entropy(self.num_states, self.num_actions, use_gpu).to(self.device)
-        # self.target_entropy = SAC_Entropy(self.num_states, self.num_actions, use_gpu).to(self.device)
-        # self.target_entropy.load_state_dict(self.entropy.state_dict())
         self.entropy_optimizer = torch.optim.Adam(self.entropy.parameters(), lr=self.learning_rate)
 
         # Initialize alpha for entropy term (automatic tuning)
         self.log_alpha = torch.tensor(np.log(self.alpha), requires_grad=True, device=self.device)
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=self.learning_rate)
-        # self.alpha = self.log_alpha.exp().item()
 
         # Initialize replay memory
         self.replay_buffer = ReplayBuffer(self.replay_memory_size)
@@ -200,7 +196,7 @@ class Agent():
         actor_loss.backward()
         self.actor_optimizer.step()
 
-        # Update the entropy coefficient (alpha)
+        # Update the entropy coefficient network (alpha)
         alpha_loss = -(self.log_alpha * (log_prob + self.target_entropy).detach()).mean()
         self.log_alpha_optimizer.zero_grad()
         alpha_loss.backward()
@@ -211,11 +207,8 @@ class Agent():
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
             target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
-
         # Increment iteration counter
         self.total_it += 1
-
-
 
     def run(self, is_training=True, continue_training=False):
 
@@ -234,13 +227,11 @@ class Agent():
                 self.load()
 
             while(not terminated and not truncated and not step_count == self.max_timestep):
-               # get action
+               # Action selection
                 action, _ = self.select_action(state)  # Sample action from the actor
-                # action = action.detach().cpu().numpy()  # Convert action to numpy for environment
 
                 next_state, reward, terminated, truncated, _ = self.env.step(action)
                 terminated = step_count == self.max_timestep - 1 or terminated
-
 
                 if is_training or continue_training:
                     self.replay_buffer.add(state, action, reward, next_state, terminated)
@@ -263,8 +254,6 @@ class Agent():
                     self.last_graph_update_time = current_time
 
                 if (episode + 1) % 100 == 0:
-                    # print(f'target_entropy: {self.target_entropy}')
-
                     average_reward = np.mean(self.rewards_per_episode[-100:])
                     if best_average_reward == None:
                         best_average_reward = average_reward
@@ -285,7 +274,6 @@ class Agent():
 
                 if best_reward == None:
                     best_reward = episode_reward
-
 
                 if episode_reward > best_reward and episode > 0:
                     log_message = f"{datetime.now().strftime(self.DATE_FORMAT)}: New Best Reward: {episode_reward:0.1f} ({abs((episode_reward-best_reward)/best_reward)*100:+.1f}%) at episode {episode}"
