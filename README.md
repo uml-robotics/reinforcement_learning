@@ -1,1 +1,7 @@
-This is an implementation of the rainbow_dqn model using our exisiting framework for starter code.
+This is an implementation of multiple reinforcement learning models. These algorithms were implemented using pytorch, gymnasium environments, and neural networks. 
+
+The following models have successfully trained to adequate reward in a number of environments:
+
+TD3 algorithm model
+Rainbow DQN algorithm model
+SAC algorithm (Continuous Action Spaces)
